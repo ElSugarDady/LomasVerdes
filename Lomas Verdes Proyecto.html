@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lomas Verdes Management Tool</title>
+    <style>
+        :root {
+            --color-dark: #4b5119;
+            --color-medium-dark: #61672E;
+            --color-medium: #787d43;
+            --color-light: #909559;
+            --color-accent: #5c6900;
+            --color-empty: #909559; /* Light for empty */
+            --color-occupied: #5c6900; /* Green for paid/occupied */
+            --color-disabled: #a94442; /* Red for disabled/maintenance - added to fit requirement, contrasts with palette */
+            --color-background: #909559;
+            --color-text: #4b5119;
+            --color-border: #61672E;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: var(--color-background);
+            color: var(--color-text);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        #logo {
+            text-align: center;
+            padding: 20px;
+            background-color: var(--color-medium);
+        }
+
+        #logo img {
+            max-width: 200px;
+            height: auto;
+        }
+
+        #login, #choice, #hotel {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+        }
+
+        #login form, #choice div {
+            background-color: var(--color-light);
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid var(--color-border);
+        }
+
+        button {
+            background-color: var(--color-accent);
+            color: var(--color-text);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: var(--color-medium-dark);
+        }
+
+        #hotel {
+            display: none;
+            flex-direction: row;
+        }
+
+        #sidebar {
+            width: 250px;
+            background-color: var(--color-medium);
+            padding: 20px;
+            border-right: 1px solid var(--color-border);
+            height: 100%;
+        }
+
+        #sidebar ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        #sidebar li {
+            background-color: var(--color-light);
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            border: 1px solid var(--color-border);
+        }
+
+        #sidebar li:hover {
+            background-color: var(--color-medium-dark);
+        }
+
+        #main-content {
+            flex: 1;
+            padding: 20px;
+            overflow: auto;
+        }
+
+        #room-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 10px;
+            position: relative;
+        }
+
+        .room {
+            background-color: var(--color-empty);
+            padding: 10px;
+            text-align: center;
+            border-radius: 5px;
+            border: 1px solid var(--color-border);
+            cursor: pointer;
+        }
+
+        .room.occupied {
+            background-color: var(--color-occupied);
+        }
+
+        .room.disabled {
+            background-color: var(--color-disabled);
+        }
+
+        #slider-controls {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+
+        #calendar-view, #add-guest-form, #current-guests, #print-forms {
+            display: none;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1px solid var(--color-border);
+            padding: 8px;
+            text-align: center;
+        }
+
+        @media print {
+            #sidebar, #logo, button:not(.print-btn) {
+                display: none;
+            }
+            #main-content {
+                background: none;
+                color: var(--color-text);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="logo">
+        <!-- Espacio para logo: Sube tu imagen y pon la URL aquí -->
+        <img src="tu-logo.png" alt="Logo Lomas Verdes">
+    </div>
+
+    <div id="login">
+        <form id="login-form">
+            <h2>Login</h2>
+            <input type="text" id="username" placeholder="Usuario" required>
+            <input type="password" id="password" placeholder="Contraseña" required>
+            <button type="submit">Entrar</button>
+        </form>
+    </div>
+
+    <div id="choice" style="display: none;">
+        <div>
+            <h2>Elige Área</h2>
+            <button id="choose-hotel">Hotel</button>
+            <button id="choose-casas">Casas</button>
+        </div>
+    </div>
+
+    <div id="hotel">
+        <div id="sidebar">
+            <ul>
+                <li id="lista-personas">Lista de personas</li>
+                <li id="calendario">Calendario</li>
+                <li id="hospedar">Hospedar a alguien</li>
+                <li id="personas-hospedan">Personas que hospedan</li>
+                <li id="imprimir">Imprimir formularios</li>
+            </ul>
+        </div>
+        <div id="main-content">
+            <div id="room-grid"></div>
+            <div id="slider-controls">
+                <button id="prev-page">&lt;</button>
+                <button id="next-page">&gt;</button>
+            </div>
+            <div id="calendar-view">
+                <h2>Calendario</h2>
+                <table id="calendar-table"></table>
+            </div>
+            <div id="add-guest-form">
+                <h2>Hospedar a alguien</h2>
+                <form id="guest-form">
+                    <input type="text" id="name" placeholder="Nombre" required>
+                    <input type="tel" id="phone" placeholder="Número de teléfono" required>
+                    <input type="email" id="email" placeholder="Correo electrónico" required>
+                    <select id="room" required></select>
+                    <input type="date" id="check-out-date" required>
+                    <input type="number" id="amount" placeholder="Cantidad de dinero" required>
+                    <select id="payment-method">
+                        <option value="visa">Visa</option>
+                        <option value="ath-mobil">ATH Mobil</option>
+                        <option value="cash">Cash</option>
+                    </select>
+                    <button type="submit">Agregar</button>
+                </form>
+            </div>
+            <div id="current-guests">
+                <h2>Personas que hospedan</h2>
+                <table id="guests-table">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Habitación</th>
+                            <th>Fecha Salida</th>
+                            <th>Pago</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div id="print-forms">
+                <h2>Imprimir formularios</h2>
+                <button id="print-income">Imprimir ingresos totales</button>
+                <select id="print-guest"></select>
+                <button id="print-receipt">Imprimir recibo de persona</button>
+                <div id="print-content" style="display: none;">
+                    <!-- Contenido para imprimir -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Datos almacenados en localStorage
+        let rooms = JSON.parse(localStorage.getItem('rooms')) || [];
+        let guests = JSON.parse(localStorage.getItem('guests')) || [];
+        let history = JSON.parse(localStorage.getItem('history')) || [];
+        let numRooms = localStorage.getItem('numRooms') || prompt('¿Cuántos cuartos tiene el hotel?');
+        localStorage.setItem('numRooms', numRooms);
+
+        // Generar habitaciones si no existen
+        if (rooms.length === 0) {
+            let letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            let roomLabels = [];
+            for (let i = 0; i < numRooms; i++) {
+                let letterIndex = Math.floor(i / 9);
+                let num = (i % 9) + 1;
+                let label = letters[letterIndex] + num;
+                rooms.push({ label: label, status: 'empty', guest: null }); // empty, occupied, disabled
+            }
+            localStorage.setItem('rooms', JSON.stringify(rooms));
+        }
+
+        // Login simple (demo)
+        document.getElementById('login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            document.getElementById('login').style.display = 'none';
+            document.getElementById('choice').style.display = 'flex';
+        });
+
+        // Elección
+        document.getElementById('choose-hotel').addEventListener('click', () => {
+            document.getElementById('choice').style.display = 'none';
+            document.getElementById('hotel').style.display = 'flex';
+            renderRoomGrid();
+        });
+
+        document.getElementById('choose-casas').addEventListener('click', () => {
+            alert('Área de Casas no implementada aún.');
+        });
+
+        // Renderizar grid de habitaciones
+        let currentPage = 0;
+        const roomsPerPage = 34; // Máximo por página
+
+        function renderRoomGrid() {
+            const grid = document.getElementById('room-grid');
+            grid.innerHTML = '';
+            const start = currentPage * roomsPerPage;
+            const end = Math.min(start + roomsPerPage, rooms.length);
+            for (let i = start; i < end; i++) {
+                const room = rooms[i];
+                const div = document.createElement('div');
+                div.className = 'room ' + room.status;
+                div.textContent = room.label + (room.guest ? ': ' + room.guest.name : '');
+                div.addEventListener('click', () => toggleRoomStatus(i));
+                grid.appendChild(div);
+            }
+            document.getElementById('prev-page').disabled = currentPage === 0;
+            document.getElementById('next-page').disabled = end === rooms.length;
+        }
+
+        document.getElementById('prev-page').addEventListener('click', () => {
+            if (currentPage > 0) currentPage--;
+            renderRoomGrid();
+        });
+
+        document.getElementById('next-page').addEventListener('click', () => {
+            if ((currentPage + 1) * roomsPerPage < rooms.length) currentPage++;
+            renderRoomGrid();
+        });
+
+        // Cambiar estado de habitación manualmente
+        function toggleRoomStatus(index) {
+            const room = rooms[index];
+            if (room.status === 'empty') room.status = 'disabled';
+            else if (room.status === 'disabled') room.status = 'empty';
+            // occupied se maneja al agregar guest
+            localStorage.setItem('rooms', JSON.stringify(rooms));
+            renderRoomGrid();
+        }
+
+        // Menú sidebar
+        const sections = ['room-grid', 'calendar-view', 'add-guest-form', 'current-guests', 'print-forms'];
+        function showSection(id) {
+            sections.forEach(sec => document.getElementById(sec).style.display = 'none');
+            document.getElementById(id).style.display = 'block';
+        }
+
+        document.getElementById('lista-personas').addEventListener('click', () => {
+            alert('Lista de personas: ' + history.map(g => g.name).join(', '));
+            showSection('room-grid');
+        });
+
+        document.getElementById('calendario').addEventListener('click', () => {
+            showSection('calendar-view');
+            renderCalendar();
+        });
+
+        document.getElementById('hospedar').addEventListener('click', () => {
+            showSection('add-guest-form');
+            populateRoomsSelect();
+        });
+
+        document.getElementById('personas-hospedan').addEventListener('click', () => {
+            showSection('current-guests');
+            renderGuestsTable();
+        });
+
+        document.getElementById('imprimir').addEventListener('click', () => {
+            showSection('print-forms');
+            populatePrintGuests();
+        });
+
+        // Poblar select de habitaciones disponibles
+        function populateRoomsSelect() {
+            const select = document.getElementById('room');
+            select.innerHTML = '';
+            rooms.filter(r => r.status === 'empty').forEach(r => {
+                const option = document.createElement('option');
+                option.value = r.label;
+                option.textContent = r.label;
+                select.appendChild(option);
+            });
+        }
+
+        // Agregar guest
+        document.getElementById('guest-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const guest = {
+                name: document.getElementById('name').value,
+                phone: document.getElementById('phone').value,
+                email: document.getElementById('email').value,
+                room: document.getElementById('room').value,
+                checkout: document.getElementById('check-out-date').value,
+                amount: document.getElementById('amount').value,
+                payment: document.getElementById('payment-method').value
+            };
+            // Simular pago
+            alert(`Pago de $${guest.amount} vía ${guest.payment} aceptado.`);
+            const roomIndex = rooms.findIndex(r => r.label === guest.room);
+            rooms[roomIndex].status = 'occupied';
+            rooms[roomIndex].guest = guest;
+            guests.push(guest);
+            history.push(guest);
+            localStorage.setItem('rooms', JSON.stringify(rooms));
+            localStorage.setItem('guests', JSON.stringify(guests));
+            localStorage.setItem('history', JSON.stringify(history));
+            renderRoomGrid();
+            showSection('room-grid');
+        });
+
+        // Renderizar tabla de guests actuales
+        function renderGuestsTable() {
+            const tbody = document.getElementById('guests-table').querySelector('tbody');
+            tbody.innerHTML = '';
+            guests.forEach(g => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${g.name}</td><td>${g.room}</td><td>${g.checkout}</td><td>$${g.amount} (${g.payment})</td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Renderizar calendario simple (mensual, ejemplo julio 2025)
+        function renderCalendar() {
+            const table = document.getElementById('calendar-table');
+            table.innerHTML = '<thead><tr><th>Dom</th><th>Lun</th><th>Mar</th><th>Mié</th><th>Jue</th><th>Vie</th><th>Sáb</th></tr></thead><tbody></tbody>';
+            const tbody = table.querySelector('tbody');
+            let tr = document.createElement('tr');
+            for (let day = 1; day <= 31; day++) {
+                if ((day - 1) % 7 === 0 && day > 1) {
+                    tbody.appendChild(tr);
+                    tr = document.createElement('tr');
+                }
+                const td = document.createElement('td');
+                const occupied = guests.filter(g => new Date(g.checkout) >= new Date(2025, 6, day)).length;
+                td.textContent = day + ` (${occupied} ocupadas)`;
+                td.style.backgroundColor = occupied > 0 ? var(--color-occupied) : var(--color-empty);
+                tr.appendChild(td);
+            }
+            tbody.appendChild(tr);
+        }
+
+        // Poblar select para imprimir
+        function populatePrintGuests() {
+            const select = document.getElementById('print-guest');
+            select.innerHTML = '';
+            history.forEach(g => {
+                const option = document.createElement('option');
+                option.value = g.name;
+                option.textContent = g.name;
+                select.appendChild(option);
+            });
+        }
+
+        // Imprimir ingresos
+        document.getElementById('print-income').addEventListener('click', () => {
+            const total = history.reduce((sum, g) => sum + parseFloat(g.amount), 0);
+            const content = document.getElementById('print-content');
+            content.innerHTML = `<h2>Ingresos Totales: $${total}</h2><ul>${history.map(g => `<li>${g.name}: $${g.amount}</li>`).join('')}</ul>`;
+            content.style.display = 'block';
+            window.print();
+            content.style.display = 'none';
+        });
+
+        // Imprimir recibo persona
+        document.getElementById('print-receipt').addEventListener('click', () => {
+            const name = document.getElementById('print-guest').value;
+            const g = history.find(gu => gu.name === name);
+            if (g) {
+                const content = document.getElementById('print-content');
+                content.innerHTML = `<h2>Recibo para ${g.name}</h2><p>Tel: ${g.phone}</p><p>Email: ${g.email}</p><p>Habitación: ${g.room}</p><p>Salida: ${g.checkout}</p><p>Pago: $${g.amount} vía ${g.payment}</p>`;
+                content.style.display = 'block';
+                window.print();
+                content.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
